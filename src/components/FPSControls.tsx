@@ -71,7 +71,7 @@ export default function DragFPSControls({
 
     const preventMenu = (e: MouseEvent) => e.preventDefault()
     const onDown = (e: MouseEvent) => {
-      if (e.button !== 2) return // botón derecho
+      if (e.button !== 0) return // botón derecho
       dragging.current = true
       last.current = { x: e.clientX, y: e.clientY }
       el.style.cursor = 'grabbing'
