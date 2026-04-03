@@ -1,4 +1,3 @@
-//Scene3D.tsx
 'use client'
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
@@ -11,13 +10,13 @@ import Header from './Header'
 import Loader3D from '../components/Loader3D'
 import FPSControls from '../components/FPSControls'
 import Joystick from './Joystick'
+import CameraJoystick from '../components/CameraJoystick'
 
 function Modelo3D() {
   const gltf = useGLTF('/tour-posgrado.glb')
   return <primitive object={gltf.scene} scale={1} />
 }
 
-/** Animación de intro al cargar la página */
 function IntroCameraAnimation({ onFinish }: { onFinish: () => void }) {
   const { camera } = useThree()
   const start = useRef(new THREE.Vector3(-10, 8, 10))
@@ -37,7 +36,6 @@ function IntroCameraAnimation({ onFinish }: { onFinish: () => void }) {
   return null
 }
 
-/** Animación genérica para volar de A a B (usada al entrar a Virtual 3D) */
 function WalkInAnimation({
   from,
   to,
@@ -91,7 +89,9 @@ export default function Scene3D() {
   const [cargando, setCargando] = useState(true)
   const [modoNoche, setModoNoche] = useState(false)
 
-  /** ⬇️ Configura aquí el vuelo al entrar a Virtual 3D */
+  // 🔥 NUEVO → estado joystick cámara
+  const [cameraInput, setCameraInput] = useState({ x: 0, y: 0 })
+
   const WALK_START = useRef(new THREE.Vector3(-15, 12, 12))
   const WALK_END   = useRef(new THREE.Vector3(-0.95, 1.0, -3.10))
 
@@ -118,7 +118,6 @@ export default function Scene3D() {
     setShowControls(false)
   }
 
-  /** Al pulsar Virtual 3D: volamos de WALK_START a WALK_END y luego habilitamos caminar */
   const activarCaminar = () => {
     releasePointer()
     setShowControls(false)
@@ -127,7 +126,6 @@ export default function Scene3D() {
     setWalkAnim(true)
   }
 
-  // Suelta el puntero cuando NO caminamos o abrimos la 360
   useEffect(() => {
     if (!modoCaminar || mostrar360) releasePointer()
   }, [modoCaminar, mostrar360])
@@ -144,31 +142,34 @@ export default function Scene3D() {
         toggleModoNoche={() => setModoNoche(!modoNoche)}
       />
 
-      {/* Joystick táctil visible sólo en modo caminar */}
+      {/* 🕹️ JOYSTICK IZQUIERDO */}
       <Joystick active={modoCaminar} size={128} radius={44} deadZone={10} />
 
+      {/* 🎯 JOYSTICK DERECHO (CAMARA) 🔥 */}
+      <CameraJoystick
+        active={modoCaminar}
+        onMove={(x, y) => setCameraInput({ x, y })}
+      />
+
       {camPos && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 60,
-            right: 15,
-            background: 'rgba(0,0,0,0.6)',
-            color: '#00ccff',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            fontFamily: 'monospace',
-            fontSize: '14px',
-            zIndex: 999,
-          }}
-        >
+        <div style={{
+          position: 'absolute',
+          top: 60,
+          right: 15,
+          background: 'rgba(0,0,0,0.6)',
+          color: '#00ccff',
+          padding: '8px 12px',
+          borderRadius: '8px',
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          zIndex: 999,
+        }}>
           x: {camPos.x.toFixed(2)}<br />
           y: {camPos.y.toFixed(2)}<br />
           z: {camPos.z.toFixed(2)}
         </div>
       )}
 
-      {/* ✅ Vista360 siempre montado; se muestra/oculta con CSS */}
       <Vista360
         open={mostrar360}
         onClose={() => {
@@ -177,7 +178,6 @@ export default function Scene3D() {
         }}
       />
 
-      {/* Oculta el Canvas sólo cuando esté abierta la 360 */}
       {!mostrar360 && (
         <Canvas
           camera={{ position: [-10, 8, 10], fov: 60 }}
@@ -198,12 +198,10 @@ export default function Scene3D() {
 
           <Modelo3D />
 
-          {/* Intro al cargar, SOLO cuando no caminamos */}
           {!modoCaminar && !showControls && !walkAnim && (
             <IntroCameraAnimation onFinish={() => setShowControls(true)} />
           )}
 
-          {/* Animación para mover la cámara al entrar a Virtual 3D */}
           {walkAnim && (
             <WalkInAnimation
               from={WALK_START.current}
@@ -215,7 +213,6 @@ export default function Scene3D() {
             />
           )}
 
-          {/* Cámara animada hacia puntos (botón Tour Posgrado) */}
           {!modoCaminar && !walkAnim && (
             <AnimatedCamera
               target={targetPos}
@@ -223,7 +220,6 @@ export default function Scene3D() {
             />
           )}
 
-          {/* ORBIT solo cuando exploramos sin caminar ni animación de entrada */}
           {showControls && !modoCaminar && !walkAnim && (
             <OrbitControls
               target={[-7, 1.0, -3]}
@@ -236,7 +232,6 @@ export default function Scene3D() {
             />
           )}
 
-          {/* Modo caminar FPS (sin pointer lock) */}
           <FPSControls
             active={modoCaminar}
             eyeHeight={0.3}
@@ -245,9 +240,11 @@ export default function Scene3D() {
             runMultiplier={1.8}
             bounds={{ minX: -20, maxX: 10, minZ: -15, maxZ: 12 }}
             onPositionUpdate={(pos) => setCamPos(pos)}
+
+            // 🔥 CONEXIÓN FINAL
+            cameraInput={cameraInput}
           />
 
-          {/* Hotspots visibles solo si NO caminamos y NO estamos en animación */}
           {!modoCaminar && !walkAnim && (
             <>
               <Hotspot
