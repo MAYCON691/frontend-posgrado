@@ -61,58 +61,87 @@ export default function DragFPSControls({
   }, [])
 
   // Mouse (clic derecho) mientras active === true
-  useEffect(() => {
-    const el = gl.domElement as HTMLCanvasElement
-    if (!active) {
-      dragging.current = false
-      el.style.cursor = 'auto'
-      return
-    }
+ useEffect(() => {
+  const el = gl.domElement as HTMLCanvasElement
 
-    const preventMenu = (e: MouseEvent) => e.preventDefault()
-    const onDown = (e: MouseEvent) => {
-      if (e.button !== 0) return // botón derecho
-      dragging.current = true
-      last.current = { x: e.clientX, y: e.clientY }
-      el.style.cursor = 'grabbing'
-    }
-    const onMove = (e: MouseEvent) => {
-      if (!dragging.current) return
-      const dx = e.clientX - last.current.x
-      const dy = e.clientY - last.current.y
-      last.current = { x: e.clientX, y: e.clientY }
+  if (!active) {
+    dragging.current = false
+    el.style.cursor = 'auto'
+    return
+  }
 
-      const sensX = 0.0025
-      const sensY = 0.0025
-      // (arrastre invertido como lo dejaste)
-      yaw.current -= dx * sensX
-      pitch.current -= dy * sensY
+  // 🖱️ MOUSE
+  const onMouseDown = (e: MouseEvent) => {
+    if (e.button !== 0) return
+    dragging.current = true
+    last.current = { x: e.clientX, y: e.clientY }
+    el.style.cursor = 'grabbing'
+  }
 
-      const maxPitch = Math.PI / 2 - 0.01
-      pitch.current = Math.max(-maxPitch, Math.min(maxPitch, pitch.current))
+  const onMouseMove = (e: MouseEvent) => {
+    if (!dragging.current) return
+    handleRotation(e.clientX, e.clientY)
+  }
 
-      applyRotation()
-    }
-    const onUp = () => {
-      dragging.current = false
-      el.style.cursor = 'auto'
-    }
+  const onMouseUp = () => {
+    dragging.current = false
+    el.style.cursor = 'auto'
+  }
 
-    el.addEventListener('contextmenu', preventMenu)
-    el.addEventListener('mousedown', onDown)
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+  // 📱 TOUCH (AQUÍ ESTÁ LA MAGIA)
+  const onTouchStart = (e: TouchEvent) => {
+    dragging.current = true
+    const touch = e.touches[0]
+    last.current = { x: touch.clientX, y: touch.clientY }
+  }
 
-    return () => {
-      el.removeEventListener('contextmenu', preventMenu)
-      el.removeEventListener('mousedown', onDown)
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      el.style.cursor = 'auto'
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active])
+  const onTouchMove = (e: TouchEvent) => {
+    if (!dragging.current) return
+    const touch = e.touches[0]
+    handleRotation(touch.clientX, touch.clientY)
+  }
 
+  const onTouchEnd = () => {
+    dragging.current = false
+  }
+
+  // 🎯 Función compartida
+  const handleRotation = (x: number, y: number) => {
+    const dx = x - last.current.x
+    const dy = y - last.current.y
+    last.current = { x, y }
+
+    const sensX = 0.0025
+    const sensY = 0.0025
+
+    yaw.current -= dx * sensX
+    pitch.current -= dy * sensY
+
+    const maxPitch = Math.PI / 2 - 0.01
+    pitch.current = Math.max(-maxPitch, Math.min(maxPitch, pitch.current))
+
+    applyRotation()
+  }
+
+  // LISTENERS
+  el.addEventListener('mousedown', onMouseDown)
+  window.addEventListener('mousemove', onMouseMove)
+  window.addEventListener('mouseup', onMouseUp)
+
+  el.addEventListener('touchstart', onTouchStart)
+  el.addEventListener('touchmove', onTouchMove)
+  el.addEventListener('touchend', onTouchEnd)
+
+  return () => {
+    el.removeEventListener('mousedown', onMouseDown)
+    window.removeEventListener('mousemove', onMouseMove)
+    window.removeEventListener('mouseup', onMouseUp)
+
+    el.removeEventListener('touchstart', onTouchStart)
+    el.removeEventListener('touchmove', onTouchMove)
+    el.removeEventListener('touchend', onTouchEnd)
+  }
+}, [active])
   const applyRotation = () => {
     camera.rotation.set(0, 0, 0)
     camera.rotateY(yaw.current)
